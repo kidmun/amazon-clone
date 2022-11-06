@@ -6,8 +6,9 @@ import Layout from "../components/Layout";
 import { Store } from "../utils/Store";
 import Image from "next/image";
 import { useRouter } from "next/router";
+import dynamic from "next/dynamic";
 
-const CartPage = () => {
+function CartPage(){
   const router = useRouter();
 
   const { state, dispatch } = useContext(Store);
@@ -104,6 +105,5 @@ const CartPage = () => {
       )}
     </Layout>
   );
-};
-
-export default CartPage;
+}
+export default dynamic(() => Promise.resolve(CartPage), {ssr: false});
