@@ -49,7 +49,7 @@ const Layout = (props) => {
         </header>
         <main className="container m-auto mt-4 px-4">{props.children}</main>
         <footer className="flex h-10 justify-center items-senter shadow-inner">
-          <p>Copyright @2022 America</p>
+          <p>Copyright @2015 Ethiopia</p>
         </footer>
       </div>
     </>
