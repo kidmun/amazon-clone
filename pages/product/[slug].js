@@ -2,23 +2,23 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/router";
 import React from "react";
+import { toast } from 'react-toastify';
 import Layout from "../../components/Layout";
-import { data } from "../../utils/data";
 import { useContext } from "react";
+import Product from '../../models/Product';
+import db from '../../utils/db';
 import { Store } from "../../utils/Store";
+import axios from "axios";
 
-const ProductDetailPage = () => {
+const ProductDetailPage = ({product}) => {
+ 
   const {state, dispatch} = useContext(Store);
   const router = useRouter();
- 
-  const { query } = useRouter();
-  const { slug } = query;
-  const product = data.products.find((x) => x.slug === slug);
   if (!product) {
-    return <div>Product Not Found</div>;
+    return <Layout title="Product Not Found">Product Not Found</Layout>;
   }
-  const addToCartHandler = () =>{
-    console.log("wokring");
+  const addToCartHandler = async () =>{
+   
     let quantity = 1;
     const existingItem = state.cart.cartItems.find(
       (item) => item.slug === product.slug
@@ -26,13 +26,14 @@ const ProductDetailPage = () => {
     if (existingItem){
       quantity = existingItem.quantity + 1;
     }
-    if (product.countInStock < quantity){
-      alert("Sorry, Product is out of stock");
-      return;
+    const { data } = await axios.get(`/api/products/${product._id}`);
+    if (data.countInStock < quantity){
+      return toast.error('Sorry. Product is out of stock');
     }
 dispatch({ type: 'CART_ADD_ITEM', payload: {
   ...product, quantity: quantity
 }});
+
 router.push('/cart');
   }
   return (
@@ -82,3 +83,16 @@ router.push('/cart');
 };
 
 export default ProductDetailPage;
+export async function getServerSideProps(context) {
+  const { params } = context;
+  const { slug } = params;
+
+  await db.connect();
+  const product = await Product.findOne({ slug }).lean();
+  await db.disconnect();
+  return {
+    props: {
+      product: product ? db.convertDocToObj(product) : null,
+    },
+  };
+}

@@ -44,6 +44,7 @@ function reducer(state, action) {
     }
     case "CART_UPDATE_ITEM": {
       const UpdatedItem = action.payload;
+      console.log(UpdatedItem)
       const cartItems = state.cart.cartItems.map((item) =>
         item.slug === UpdatedItem.slug ? UpdatedItem : item
       );

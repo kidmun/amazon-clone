@@ -23,7 +23,9 @@ const ProductItem = (props) => {
         </Link>
         <p className="mb-2">{props.product.brand}</p>
         <p>${props.product.price}</p>
-        <button className="primary-button" type="button">Add To Card</button>
+        <button className="primary-button" type="button" onClick={() => {
+            props.addToCart()
+        }}>Add To Card</button>
         </div>
     </div>
 };
