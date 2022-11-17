@@ -1,6 +1,25 @@
 import '../styles/globals.css';
 import { SessionProvider, useSession } from 'next-auth/react';
 import { StoreProvider } from '../utils/Store';
+import { PayPalScriptProvider } from '@paypal/react-paypal-js';
+
+function MyApp({ Component, pageProps: { session, ...pageProps } }) {
+  return (
+    <SessionProvider session={session}>
+    <StoreProvider>
+    <PayPalScriptProvider deferLoading={true}>
+      {Component.auth ? (
+        <Auth>
+          <Component {...pageProps} />
+        </Auth>
+      ) : (
+        <Component {...pageProps} />
+      )}
+       </PayPalScriptProvider>
+    </StoreProvider>
+  </SessionProvider>
+  );
+}
 import { useRouter } from 'next/router';
 function Auth({ children }) {
   const router = useRouter();
@@ -17,21 +36,6 @@ function Auth({ children }) {
   return children;
 }
 
-function MyApp({ Component, pageProps: { session, ...pageProps } }) {
-  return (
-    <SessionProvider session={session}>
-    <StoreProvider>
-      {Component.auth ? (
-        <Auth>
-          <Component {...pageProps} />
-        </Auth>
-      ) : (
-        <Component {...pageProps} />
-      )}
-    </StoreProvider>
-  </SessionProvider>
-  );
-}
 
 
 export default MyApp;
