@@ -9,7 +9,7 @@ function MyApp({ Component, pageProps: { session, ...pageProps } }) {
     <StoreProvider>
     <PayPalScriptProvider deferLoading={true}>
       {Component.auth ? (
-        <Auth>
+        <Auth adminOnly={Component.auth.adminOnly}>
           <Component {...pageProps} />
         </Auth>
       ) : (
@@ -21,9 +21,9 @@ function MyApp({ Component, pageProps: { session, ...pageProps } }) {
   );
 }
 import { useRouter } from 'next/router';
-function Auth({ children }) {
+function Auth({ children, adminOnly }) {
   const router = useRouter();
-  const { status } = useSession({
+  const { status,data: session  } = useSession({
     required: true,
     onUnauthenticated() {
       router.push('/unauthorized?message=login required');
@@ -31,6 +31,9 @@ function Auth({ children }) {
   });
   if (status === 'loading') {
     return <div>Loading...</div>;
+  }
+  if (adminOnly && !session.user.isAdmin) {
+    router.push('/unauthorized?message=admin login required');
   }
 
   return children;

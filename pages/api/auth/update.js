@@ -9,6 +9,7 @@ async function handler(req, res) {
   }
 
   const session = await getSession({ req });
+  
   if (!session) {
     return res.status(401).send({ message: 'signin test' });
   }
