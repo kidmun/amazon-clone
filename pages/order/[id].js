@@ -1,29 +1,42 @@
-import { PayPalButtons, usePayPalScriptReducer } from '@paypal/react-paypal-js';
-import axios from 'axios';
-import Image from 'next/image';
-import Link from 'next/link';
-import { useRouter } from 'next/router';
-import { useEffect, useReducer } from 'react';
-import { toast } from 'react-toastify';
-import Layout from '../../components/Layout';
-import { getError } from '../../utils/error';
+import { PayPalButtons, usePayPalScriptReducer } from "@paypal/react-paypal-js";
+import axios from "axios";
+import { useSession } from "next-auth/react";
+import Image from "next/image";
+import Link from "next/link";
+import { useRouter } from "next/router";
+import { useEffect, useReducer } from "react";
+import { toast } from "react-toastify";
+import Layout from "../../components/Layout";
+import { getError } from "../../utils/error";
 
 function reducer(state, action) {
   switch (action.type) {
-    case 'FETCH_REQUEST':
-      return { ...state, loading: true, error: '' };
-    case 'FETCH_SUCCESS':
-      return { ...state, loading: false, order: action.payload, error: '' };
-    case 'FETCH_FAIL':
+    case "FETCH_REQUEST":
+      return { ...state, loading: true, error: "" };
+    case "FETCH_SUCCESS":
+      return { ...state, loading: false, order: action.payload, error: "" };
+    case "FETCH_FAIL":
       return { ...state, loading: false, error: action.payload };
-    case 'PAY_REQUEST':
+    case "PAY_REQUEST":
       return { ...state, loadingPay: true };
-    case 'PAY_SUCCESS':
+    case "PAY_SUCCESS":
       return { ...state, loadingPay: false, successPay: true };
-    case 'PAY_FAIL':
+    case "PAY_FAIL":
       return { ...state, loadingPay: false, errorPay: action.payload };
-    case 'PAY_RESET':
-      return { ...state, loadingPay: false, successPay: false, errorPay: '' };
+    case "PAY_RESET":
+      return { ...state, loadingPay: false, successPay: false, errorPay: "" };
+    case "DELIVER_REQUEST":
+      return { ...state, loadingDeliver: true };
+    case "DELIVER_SUCCESS":
+      return { ...state, loadingDeliver: false, successDeliver: true };
+    case "DELIVER_FAIL":
+      return { ...state, loadingDeliver: false };
+    case "DELIVER_RESET":
+      return {
+        ...state,
+        loadingDeliver: false,
+        successDeliver: false,
+      };
 
     default:
       state;
@@ -31,47 +44,52 @@ function reducer(state, action) {
 }
 function OrderScreen() {
   // order/:id
+  const { data: session } = useSession();
   const [{ isPending }, paypalDispatch] = usePayPalScriptReducer();
 
   const { query } = useRouter();
   const orderId = query.id;
 
-  const [{ loading, error, order, successPay, loadingPay }, dispatch] =
+  const [{ loading, error, order, successPay, loadingPay,  loadingDeliver,
+    successDeliver, }, dispatch] =
     useReducer(reducer, {
       loading: true,
       order: {},
-      error: '',
+      error: "",
     });
   useEffect(() => {
     const fetchOrder = async () => {
       try {
-        dispatch({ type: 'FETCH_REQUEST' });
+        dispatch({ type: "FETCH_REQUEST" });
         const { data } = await axios.get(`/api/orders/${orderId}`);
-        dispatch({ type: 'FETCH_SUCCESS', payload: data });
+        dispatch({ type: "FETCH_SUCCESS", payload: data });
       } catch (err) {
-        dispatch({ type: 'FETCH_FAIL', payload: getError(err) });
+        dispatch({ type: "FETCH_FAIL", payload: getError(err) });
       }
     };
-    if (!order._id || successPay || (order._id && order._id !== orderId)) {
+    if (!order._id || successDeliver || successPay || (order._id && order._id !== orderId)) {
       fetchOrder();
       if (successPay) {
-        dispatch({ type: 'PAY_RESET' });
+        dispatch({ type: "PAY_RESET" });
+      }
+      if (successDeliver) {
+        dispatch({ type: "DELIVER_RESET" });
       }
     } else {
       const loadPaypalScript = async () => {
-        const { data: clientId } = await axios.get('/api/keys/paypal');
+        const { data: clientId } = await axios.get("/api/keys/paypal");
         paypalDispatch({
-          type: 'resetOptions',
+          type: "resetOptions",
           value: {
-            'client-id': clientId,
-            currency: 'USD',
+            "client-id": clientId,
+            currency: "USD",
           },
         });
-        paypalDispatch({ type: 'setLoadingStatus', value: 'pending' });
+        paypalDispatch({ type: "setLoadingStatus", value: "pending" });
       };
       loadPaypalScript();
     }
-  }, [order, orderId, paypalDispatch, successPay]);
+  }, [order, orderId, paypalDispatch, successPay, successDeliver]);
   const {
     shippingAddress,
     paymentMethod,
@@ -103,21 +121,35 @@ function OrderScreen() {
   function onApprove(data, actions) {
     return actions.order.capture().then(async function (details) {
       try {
-        dispatch({ type: 'PAY_REQUEST' });
+        dispatch({ type: "PAY_REQUEST" });
         const { data } = await axios.put(
           `/api/orders/${order._id}/pay`,
           details
         );
-        dispatch({ type: 'PAY_SUCCESS', payload: data });
-        toast.success('Order is paid successgully');
+        dispatch({ type: "PAY_SUCCESS", payload: data });
+        toast.success("Order is paid successgully");
       } catch (err) {
-        dispatch({ type: 'PAY_FAIL', payload: getError(err) });
+        dispatch({ type: "PAY_FAIL", payload: getError(err) });
         toast.error(getError(err));
       }
     });
   }
   function onError(err) {
     toast.error(getError(err));
+  }
+  async function deliverOrderHandler() {
+    try {
+      dispatch({ type: "DELIVER_REQUEST" });
+      const { data } = await axios.put(
+        `/api/admin/orders/${order._id}/deliver`,
+        {}
+      );
+      dispatch({ type: "DELIVER_SUCCESS", payload: data });
+      toast.success("Order is delivered");
+    } catch (err) {
+      dispatch({ type: "DELIVER_FAIL", payload: getError(err) });
+      toast.error(getError(err));
+    }
   }
 
   return (
@@ -133,8 +165,8 @@ function OrderScreen() {
             <div className="card  p-5">
               <h2 className="mb-2 text-lg">Shipping Address</h2>
               <div>
-                {shippingAddress.fullName}, {shippingAddress.address},{' '}
-                {shippingAddress.city}, {shippingAddress.postalCode},{' '}
+                {shippingAddress.fullName}, {shippingAddress.address},{" "}
+                {shippingAddress.city}, {shippingAddress.postalCode},{" "}
                 {shippingAddress.country}
               </div>
               {isDelivered ? (
@@ -202,7 +234,7 @@ function OrderScreen() {
                     <div>Items</div>
                     <div>${itemsPrice}</div>
                   </div>
-                </li>{' '}
+                </li>{" "}
                 <li>
                   <div className="mb-2 flex justify-between">
                     <div>Tax</div>
@@ -235,6 +267,17 @@ function OrderScreen() {
                       </div>
                     )}
                     {loadingPay && <div>Loading...</div>}
+                  </li>
+                )}
+                {session.user.isAdmin && order.isPaid && !order.isDelivered && (
+                  <li>
+                    {loadingDeliver && <div>Loading...</div>}
+                    <button
+                      className="primary-button w-full"
+                      onClick={deliverOrderHandler}
+                    >
+                      Deliver Order
+                    </button>
                   </li>
                 )}
               </ul>
